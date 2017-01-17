@@ -1,0 +1,64 @@
+<html>
+<head>
+  <title>draw YOUR dreams</title>
+  <link rel="stylesheet" type="text/css" href="assets/css/style.css">
+  <script>window.INITIAL_STATE = <%-JSON.stringify(data)%>;</script>
+  <script src="/assets/js/script.js"></script>
+  <!-- <script src="./config.js"></script> vanilla JS doesn't let me do import or require; would hide in process.ENV with node.js -->
+</head>
+<body>
+  <div id="loginStatus"></div>
+  <canvas class="drawing"></canvas>
+<div class="controls">
+  <input type="color" id="fillStyle">FILL STYLE
+  <input type="color" id="strokeStyle">STROKE STYLE
+  <input type="range" id="lineWidth" min="0.5" max="20" step="0.5">LINE WIDTH
+  <input type="range" id="brushSize" min="5" max="100" step="5">BRUSH SIZE
+  <input type="range" id="circleRadius" min="1" max="500" step="5" value="10">RADIUS
+  <input type="range" id="layerOpacity" min="0.05" max="1.0" step="0.05" value="1">LAYER OPACITY
+  <input type="range" id="drawRate" min="10" max="200" step="5" value="10">DRAW RATE (in auto mode)
+  BLEND MODE: <select name="blendMode" id="blendMode">
+    <option value="source-over">Source-Over [default]</option>
+    <option value="source-in">Source-In</option>
+    <option value="source-out">Source-Out</option>
+    <option value="source-atop">Source-Atop</option>
+    <option value="destination-over">Destination-Over</option>
+    <option value="destination-out">Destination-Out</option>
+    <option value="destination-atop">Destination-Atop</option>
+    <option value="lighter">Lighter</option>
+    <option value="copy">Copy</option>
+    <option value="xor">XOR</option>
+    <option value="multiply">Multiply</option>
+    <option value="screen">Screen</option>
+    <option value="overlay">Overlay</option>
+    <option value="darken">Darken</option>
+    <option value="lighten">Lighten</option>
+    <option value="color-dodge">Color-dodge</option>
+    <option value="color-burn">Color-burn</option>
+    <option value="hard-light">Hard-light</option>
+    <option value="soft-light">Soft-light</option>
+    <option value="difference">Difference</option>
+    <option value="exclusion">Exclusion</option>
+    <option value="hue">Hue</option>
+    <option value="saturation">Saturation</option>
+    <option value="color">Color</option>
+    <option value="luminosity">Luminosity</option>
+  </select>
+  <button id="undo" class="timeframe">UNDO</button>
+  <button id="redo" class="timeframe">REDO</button>
+  <button id="tBrush" class="tool">BRUSH [B]</button>
+  <button id="tLine" class="tool">LINE [L]</button>
+  <button id="tCurve" class="tool">CURVE [V]</button>
+  <button id="tCircle" class="tool">CIRCLE [C]</button>
+  <button id="tSquare" class="tool">SQUARE [S]</button>
+  <button id="randomBackground">RANDOM BACKGROUND</button>
+  <button id="filterIt">FILTER EFFECT</button>
+  <button id="randomizeParameters" value="RANDOMIZE">RANDOMIZE</button>
+  <button id="picMe">PAINT A (PNG) PICTURE</button>
+  <button id="imGrr">UPLOAD TO IMGUR</button>
+  <button id="saveFile">SAVE A FILE</button>
+  <button id="loadImage">LOAD PREVIOUS IMAGE</button>
+  <button id="clear">CLEAR CANVAS [X]</button>
+</div>
+</body>
+</html>

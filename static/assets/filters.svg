@@ -1,0 +1,50 @@
+<svg style="position: absolute; top: -99999px" xmlns="http://www.w3.org/2000/svg">
+  <filter id="svgBlur" x="-5%" y="-5%" width="110%" height="110%">
+    <feGaussianBlur in="SourceGraphic" stdDeviation="5"/>
+  </filter>
+</svg>
+
+<filter id="Gothamish" color-interpolation-filters="sRGB">
+<feComponentTransfer in="SourceGraphic" result="midtoneContrast">
+<feFuncR type="table" tableValues="0 0.05 0.1 0.2 0.3 0.5 0.7 0.8 0.9 0.95 1.0"/>
+</feComponentTransfer>
+<feColorMatrix in="midtoneContrast" result="redBWandblue" type="matrix" values="1 0 0 0 0
+10000
+1 0 0 0 0.03
+0 0 0 1 0"/>
+<feGaussianBlur in="redBWandblue" stdDeviation="1" result="blurMask"/>
+<feComposite operator="arithmetic" in="redBWandblue" in2="blurMask" k2="1.3" k3="-0.3" result="postsharp"/>
+<feComponentTransfer result="finalImage" in="postsharp">
+<feFuncB type="table" tableValues="0 0.047 0.118 0.251 0.318 0.392 0.42 0.439 0.475 0.561 0.58 0.627 0.671 0.733 0.847 0.925 1"/>
+</feComponentTransfer>
+</filter>
+
+<filter id="roughpaper" x="0%" y="0%" width="100%" height="100%">
+<feTurbulence type="fractalNoise" baseFrequency="0.04" numOctaves="5" result="noise"/>
+<feDiffuseLighting in="noise" lighting-color="yellow" surfaceScale="2" result="diffLight">
+<feDistantLight azimuth="45" elevation="35"/>
+</feDiffuseLighting>
+</filter>
+
+<svg style="position: absolute; top: -99999px" xmlns="http://www.w3.org/2000/svg">
+<filter id="displacementFilter">
+   <feTurbulence type="turbulence" baseFrequency="0.05"
+       numOctaves="2" result="turbulence"/>
+   <feDisplacementMap in2="turbulence" in="SourceGraphic"
+       scale="50" xChannelSelector="R" yChannelSelector="G"/>
+ </filter>
+ </svg>
+
+<filter id="dropshadow">
+<feGaussianBlur in="SourceAlpha" result="blurOut" stdDeviation="4"/>
+<feOffset in="blurOut" result="dropBlur" dx="500" dy="50"/>
+<feComposite operator="over" in="SourceGraphic" in2="dropBlur" result="final"/>
+</filter>
+
+<svg xmlns="http://www.w3.org/2000/svg" version="1.1" width="0%" height="0%">
+  <filter id="emboss">
+    <feConvolveMatrix order="5 5"
+      preserveAlpha="true"
+      kernelMatrix="-1 0 0 0 0 0 -2 0 0 0 0 0 3 0 0 0 0 0 0 0 0 0 0 0 0"/>
+  </filter>
+</svg>
