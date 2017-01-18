@@ -3,16 +3,47 @@
 First big "MEEN" stack project using MongoDB for image storage (indexing filenames, image metadata, and userinfo to fetch things from the file system, express JS for serving up and routing, and Embedded Java Script currently for the view (hence MEEN instead of MEAN). Plan to deploy on Heroku when more stable. Right now working on adding additional features and small bug fixes. Learning tons!
 
 ##QUICK WINS
+[ ] Set the min and max brush sizes for the sliders relative to the image at hand to make them usable! :)
+[ ] Custom SVG buttons for toolbar?
+[ ] When line-width is close to zero it looks funny. It can't be zero, but if we make it too small sometimes there's aliasing.
+[ ] Save-as Box Resizes Uglily.
+[ ] Filename autofocus doesn't work
+[ ] Style input box with pretty text and such
+[ ] Maybe canvas message for "PICASSO" was saved succesfully, or overwritten, or what have your
+
+[ ] Camera-roll like display toggle of user images using AJAX so you don't have to visit a separate page
+[ ] Or just visit the separate page in a div or iframe
+
+##ROTATION THINGS&BUGS
+[ ] First UNDO step does not work
+[ ] UNDO/REDO doesn't work for canvas rotations
+[ ] Change rotation to just be 90degrees left / 90 degres right, and then mirror horizontal, mirror vertical
+
+#optimizations and stuff
+
+[ ] -> Display file name on user pages
+
+[ ] -> Make sure your IDs are actually unique and won't generate collisions!
+[ ] -> Maybe generate small image thumbnail for larger galleries on image save and put a thumbSrc in the DB row so we can display without having to pull the big image from the Fs and then resize
+[ ] Better toolbar UI
+[ ] Make movable/resizable
+[ ] Add ability to "nest" or "dock" (stickyness)
+
+
+[ ] Filter 'preview' gallery maybe
 [ ] For the filter fill colors, like say lighten, take an average of the information in the overlaid region.
 [ ] Modal with pretty window-size dragging / validation / etc.
-[ ] Destination-in tends to crash the app.
+
+
+[ ] //http://expressjs-book.com/index.html%3Fp=128.html Implementing sessions with a Redis session store or a MongoDB session store
+[ ] Can leave canvas as it was so when you log back in the canvas is in that state.
+
 [ ] Color palettes
 [ ] Keyboard toggle for circle radius up/down
 [ ] Toggle-able jitter function + jitter "amount/range"
 [ ] Make jitter global and be able to control jitter params
 [ ] Maybe make jitter only part of automatic mode
 [ ] Have a text write function or a text brush
-[ ] Better tool display (hoverable div perhaps relative positioned to the right border of the canvas)
 [ ] http://stackoverflow.com/questions/39029893/why-is-the-mongodb-node-driver-generating-instance-pool-destroyed-errors
 [ ] ALL the FILTERS
 [ ] Selective filter application to "regions" of the canvas
@@ -21,31 +52,53 @@ First big "MEEN" stack project using MongoDB for image storage (indexing filenam
 [ ] Random colors on-off
 [ ] Sliders for random size range
 [ ] Background-color changer
-[ ] Store IMGUR links
+
+API Integration
+[ ] Store IMGUR links in the DB
+[ ] Grab random unsplash.it image based on user size input on landing screen using the API
+[ ] Share on Twitter
+[ ] Share on FB
+[ ] Share on Instagram
+
+Cross-App integration
+[ ] Support multiple file-type save modes
+
+###User image page/sessions:
+[ ] Conditiional button if uploaded to IMGUR to manage IMGUR link
+  -> back-end: store imgur link in image collection w/images
+  -> store imgur deletion code on back-end as well
+  -> store "canvas preferences"
+  -> mode to "save canvas preferences/set-up to come back, maybe have a list"
+  -> canvas/image effects, transformations, define-your-own transform matrix, etc.
 [ ] Login session cookie
-* [ ] Logout button that actually functions haha
-[ ] Better EJS and/or Jade integration
+[ ] Logout button that actually functions haha
 [ ] Can have a Login-meta collection w/ stuff like login count, last logged in time, user metadata (not creepy tho!), etc.
 [ ] favorite tools, etc. tool-tips based on previous drawing behavior or brand new things!
+
 [ ] Admin login with a "management console":
  ->view all images with option to delete
  ->view all users with data and option to delete
+[ ] HTML5 tooltip "pop-over" with "Got it" and then "okay"
 
-[ ] Better design: pixel-perfect, em, etc.
-[ ] Grab random unsplash.it image based on user size input on landing screen using the API
+###Canvas enhancements
+[ ] Select region and then copy-paste
+[ ] Select region and then selectively-apply effects
+-> Make sure undo only works on those regions (mask?)
 [ ] Offer filter and collage operations
-[ ] Image comparison?
 [ ] Better SVG filters
-[ ] Randomization seed from sentences etc.
-[ ] Latte-art mode
-[ ] Mark Rothko mode
-
+[ ] Randomization seed from sentences etc. -> Randomly filter / art/make image from tweet text or random strings
+-> Will need to sanitize the input
 
 ###the long game
+[ ] Mobile-friendly/small screen friendly bc right now uh no.
 [ ] App path of usernames with a user page of images and cool stuff like that
 [ ] Maybe look at modularizing the FS stuff in addition to the db stuff.
 [ ] Make sure that you're using asynchronous everything!
 [ ] Maybe look at a different way of doing state storage for the app.
+[ ] DRY YAGI etc.
+[ ] More functional code, yet still separation of concerns w/good decoupling
+[ ] A little layers box with transparency
+[ ] SVG support (but make sure you don't recreate that thing that already exists)
 
 #HANDWAVEY BIG PICTURE
 [ ] Selective "region" application of filters, composite blend, etc., masking effects
@@ -54,6 +107,9 @@ First big "MEEN" stack project using MongoDB for image storage (indexing filenam
 [ ] More image export modes
 [ ] Prettier image storage than base64 PNG!
 [ ] Actual BRUSHES that can be user-defined
+[ ] Image comparison?
+[ ] Latte-art mode
+[ ] Mark Rothko mode
 
 * handy mongo misc commands
 listen(): bind() failed Address already in use for socket: 0.0.0.0:27017
@@ -61,14 +117,6 @@ ps wuax | grep mongo
 kill PID associatd with Mongo
 
 mongod --dbpath ./mongodata
-
-###User image page:
-[ ] Conditiional button if uploaded to IMGUR to manage IMGUR link
-  -> back-end: store imgur link in image collection w/images
-  -> store imgur deletion code on back-end as well
-  -> store "canvas preferences"
-  -> mode to "save canvas preferences/set-up to come back, maybe have a list"
-  -> canvas/image effects, transformations, define-your-own transform matrix, etc.
 
 ###Canvas mods:
 ##COMPLETED 💥
@@ -94,7 +142,6 @@ mongod --dbpath ./mongodata
 [X] Break up the mouse-down / mouse-drag code, DRY DRY DRY!
 [X] A brush is basically just an X-Y matrix with defined opacities and transformations at each x-y, no?
 e.g., brush: MxN array of 0 or 1 for paint pixel or don't paint pixel. M = CS.radius
-
 0 0 0 0 0
 0 0 0 0 0
 0 0 0 0 0
@@ -105,6 +152,13 @@ e.g., brush: MxN array of 0 or 1 for paint pixel or don't paint pixel. M = CS.ra
 [X] Shape mode
 [X] Image gallery
 [X] Time of login: e.g., "Welcome back! you were last here on . . ."
+[X] Turn off the randomness
+[X] Destination-in tends to crash the app.
+[X] Better tool display (hoverable div perhaps relative positioned to the right border of the canvas)
+[X] Save file modal pop in middle of canvas, ask for name to save.
+[X] -> Leave Fs naming the same. The Db just maps names for a user's files to a unique ID
+[X] -> In Db AND Fs, map "user" file name to a unique imgSrc so two files can have the same (imgName) without conflicts
+
 
 #NOTES
 http://www.nodebeginner.org/#javascript-and-nodejs
@@ -116,11 +170,20 @@ The router probably should also treat any incoming POST data and give it to the 
 We not only want to handle requests for URLs, we also want to display content when these URLs are requested, which means we need some kind of view logic the request handlers can use in order to send content to the user's browser
 Last but not least, the user will be able to upload images, so we are going to need some kind of upload handling which takes care of the details"
 
+* git diff --stat `git hash-object -t tree /dev/null` a useful tool to see lines of code changed between commits
+
 # LEARNINGS
 
 *  mongoConnect(function(m){console.log(m);},{userkname:"avery"});
 
 If you mistype a data parameter MONGO will return EVERYTHING. This could result in really undesirable behavior. So make sure your parameters are typed correctly.
+
+* "This can cause the remote repository to lose commits; use it with care.
+If you do not wish to merge the remote branch into your local branch (see differences with git diff), and want to do a force push, use the push command with -f
+
+git push -f origin <branch>
+where origin is the name of your remote repo."
+(http://stackoverflow.com/questions/10298291/cannot-push-to-github-keeps-saying-need-merge)[http://stackoverflow.com/questions/10298291/cannot-push-to-github-keeps-saying-need-merge]
 
 # MONGO shell commands
 

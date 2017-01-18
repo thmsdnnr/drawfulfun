@@ -2,16 +2,37 @@ var MongoClient = require('mongodb').MongoClient;
 let dbCon;
 let dbUrl='mongodb://localhost:27017/ndlrn';
 
+//TODO: save Imgur URL, Imgur Delete Hash in the db
+//TODO: make sure Imgur upload also works if you're a logged in Imgur user and not just posting anonymously
 //TODO: modularize the client connection open and close code somehow using promises
 //TODO: be able to pass an array of functions or chain dot functions like in jQUERY for prettierness and easier testing.
 
 /*IMAGES*/
-//
 //CRUD:
 exports.saveImage = function(data,cb) {
   MongoClient.connect(dbUrl, function(err, db) {
     if (!err) {
-      db.collection("images").insert({srnm:data.username, imgSrc:data.imagePath, width:data.width, height:data.height});
+      db.collection("images").insert({srnm:data.username, imgSrc:data.imagePath, width:data.width, height:data.height, imgName:data.imgName});
+      cb();
+    }
+    db.close();
+  });
+}
+
+exports.updateImage = function(data,cb) {
+  MongoClient.connect(dbUrl, function(err, db) {
+    if (!err) {
+      db.collection("images").update(
+        { id:data._id },
+        {
+          srnm:data.username,
+          imgSrc:data.imagePath,
+          width:data.width,
+          height:data.height,
+          imgName:data.imgName
+        },
+        { upsert: true }
+      );
       cb();
     }
     db.close();
@@ -51,6 +72,19 @@ exports.getUserImages = function(query,cb) { //retrieve list of all user images
   }
   db.close();
 });
+}
+
+exports.getUserImageFileNames = function(query,cb) { //retrieve list of all user images
+  MongoClient.connect(dbUrl, function(err, db){
+    if (!err) {
+      db.collection("images").find({srnm:query.username, imgName:{$exists:true, $ne:'null'}}).toArray(function(err,docs) {
+          if (!err) {
+            (docs.length) ? cb(docs) : cb(null);
+          }
+      });
+    }
+    db.close();
+  });
 }
 
 exports.getLatestUserImage = function(query,cb) { //get latest user image sorting by Mongo db ID, descending

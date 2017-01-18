@@ -1,12 +1,13 @@
 //NPM module requires
+var cookieSession=require('cookie-session');
 var express=require('express');
 var bodyParser=require('body-parser');
-let fs = require('fs');
+let fs=require('fs');
 var path=require("path");
 var concat=require("concat-stream");
-var async = require('async');
-var assert = require('assert');
-var await = require('await');
+var async=require('async');
+var assert=require('assert');
+var await=require('await');
 
 //Project modules
 var Db = require('./imgDb.js');
@@ -15,13 +16,21 @@ var Db = require('./imgDb.js');
   app.locals.CANVAS = '';
   app.locals.LOGGED_IN_USER = '';
 
+//TODO make me work!
+  app.use(cookieSession({
+    name: 'session',
+    keys: ['secretOne','secretTwo'],
+    maxAge: 60*60*1000 // one hour
+  }));
+
   app.use(express.static(__dirname+'/static'));
-  app.use(['/save','/load'],bodyParser.json({limit: '5mb', extended: true}));
+  app.use(['/save','/load','/u/imgNames'],bodyParser.json({limit: '5mb', extended: true}));
   app.use(['/login','/register','/mod'],bodyParser.urlencoded({ extended: true }));
   app.set('view engine', 'ejs');
   app.set('views', path.join(__dirname+'/views'));
 
-  app.get('/', function(req,res) {
+  app.get('/', function(req,res) { //TODO: change 'USER': to app.locals.LOGGED_IN_USER
+    app.locals.LOGGED_IN_USER='thomas'; //shim so I don't have to log in.
     let state={'USER':app.locals.LOGGED_IN_USER, 'CANVAS':app.locals.CANVAS, 'LAST_VISITED':app.locals.LAST_VISITED};
     (app.locals.LOGGED_IN_USER!=='') ? res.render('app', {data:state}) : res.render('index');
   });
@@ -35,7 +44,7 @@ var Db = require('./imgDb.js');
           fs.unlink(path.join(__dirname+'/data/'+req.body.DELETE), (err) => {
             if (err) throw err;
             console.log('successfully deleted')
-            res.redirect('/db') //TODO: make this path the path of the current username
+            res.redirect('/db') //TODO: make this path the path of the current username or like "MYIMAGES" or something
           });
         }
       });
@@ -60,7 +69,7 @@ var Db = require('./imgDb.js');
       let imgs=sources.map(function(img){
         return new Promise(function(resolve,reject){
           dataToImageTag(img.source, function(i){
-            resolve({imgRaw:i,imgSrc:img.source,width:img.width,height:img.height});
+            resolve({imgRaw:i,imgSrc:img.source,width:img.width,height:img.height,imgName:img.imgName});
           });
         });
       });
@@ -82,7 +91,7 @@ var Db = require('./imgDb.js');
       let imgs=sources.map(function(img){
         return new Promise(function(resolve,reject){
           dataToImageTag(img.source, function(i){
-            resolve({imgRaw:i,imgSrc:img.source,width:img.width,height:img.height});
+            resolve({imgRaw:i,imgSrc:img.source,width:img.width,height:img.height,imgName:img.imgName});
           });
         });
       });
@@ -102,18 +111,47 @@ var Db = require('./imgDb.js');
     });
   }
 
-  app.post('/save', function(req,res) {
+  app.post('/u/imgNames', function(req,res) { //retrieves list of image names
+    let currentUser=app.locals.LOGGED_IN_USER;
+    Db.getUserImageFileNames({username:currentUser}, function(data) {
+      if(data) {
+        let imgNames=data.map((d) => d.imgName);
+        console.log(imgNames);
+        res.send(JSON.stringify(imgNames));
+      }
+    });
+  });
+
+  app.post('/save', function(req,res) { //TODO is this async?
     let currentUser=app.locals.LOGGED_IN_USER;
     if (!currentUser) { return false; }
     let t = new Date(Date.now());
-    let imageName = new Buffer(t+app.locals.LOGGED_IN_USER).toString('base64'); //kind of randomish
+    let fileName = new Buffer(t+app.locals.LOGGED_IN_USER).toString('base64'); //kind of randomish
     //save the image to the filesystem then, if successful, the database
-    fs.appendFile(path.join(__dirname+'/data/'+imageName), req.body.data, (err) => {
-      if (err) throw err;
-      console.log(`THE DATA WAS SUCCESSFULLY SAVED TO ${imageName} in the filesystem`);
-      Db.saveImage({username: `${currentUser}`, imagePath: `${imageName}`, width: `${req.body.width}`, height: `${req.body.height}`}, ()=>{
-        console.log('success saving image to DB');});
-      });
+    //console.log(req.body);
+    if (req.body.imgName!==null) { //check to see if this is a duplicate name and if so, overwrite the file.
+      Db.getUserImageFileNames({username:currentUser}, function(data) {
+        if(data) { //we need to overwrite/update the existing file on the Db and the Fs
+          console.log(data);
+          console.log(data[0].imgSrc);
+          fs.writeFile(path.join(__dirname+'/data/'+data[0].imgSrc), req.body.data, (err) => {
+            if (err) throw err;
+            console.log(`We succesfully overwrote ${data[0].imgSrc} in the file system`);
+          });
+          Db.updateImage(data[0], function() {
+            console.log(`We succesfully updated ${data[0].imgSrc} in the database.`);
+          });
+        }
+        else { //this is a new name, so use the newly generated fileName and save to the Db.
+          fs.appendFile(path.join(__dirname+'/data/'+fileName), req.body.data, (err) => {
+            if (err) throw err;
+            console.log(`THE DATA WAS SUCCESSFULLY SAVED TO ${fileName} in the filesystem`);
+            Db.saveImage({username: `${currentUser}`, imagePath: `${fileName}`, width: `${req.body.width}`, height: `${req.body.height}`, imgName:`${req.body.imgName}`}, ()=>{
+              console.log(`success! saved ${req.body.imgName} to the db!`);});
+            });
+          }
+        });
+      }
     });
 
     app.get('/load/:id', function(req,res) {
@@ -201,6 +239,34 @@ app.post('/register', function(req,res) {
       res.write(`sorry but ${inputUser} is already taken`);
       res.end();
     }
+  });
+});
+
+app.get('/u/:username', function(req,res) {
+  console.log(req.params.username);
+  Db.getUserImages({'username':req.params.username},function(data){
+    if (data[0]) {
+      let sources=data.map(function(d) {
+      return {source:d.imgSrc,width:d.width,height:d.height};
+    });
+      let imgs=sources.map(function(img){
+        return new Promise(function(resolve,reject){
+          dataToImageTag(img.source, function(i){
+            resolve({imgRaw:i,imgSrc:img.source,width:img.width,height:img.height});
+          });
+        });
+      });
+      Promise.all(imgs).then(function(result){
+        console.log(result.length+ ' images available.');
+        res.render('userpage', {data:result});
+        //res.end();
+      });
+    }
+  else {
+        res.writeHead(200);
+        res.write(`Sorry, but ${req.params.username} is not a valid user page address.`);
+        res.end();
+      }
   });
 });
 

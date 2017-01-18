@@ -1,0 +1,20 @@
+<html>
+<head>
+  <title>HEY TEST</title>
+<link rel="stylesheet" type="text/css" href="../assets/css/page.css">
+</head>
+<body>
+  <div id="container">
+<h1>USER IMAGES</h1>
+<div id="images">
+  <% for(var i=0; i<data.length; i++) { %>
+<div id="image">
+    <a href="<%=data[i].imgRaw%>">
+      <img src="<%=data[i].imgRaw%>" width="<%=Math.floor(data[i].width/2)%>" height="<%=Math.floor(data[i].height/2)%>"
+    name="<%=data[i].imgSrc%>" alt="pretty image"></a>
+</div>
+<% } %>
+</div>
+</div>
+</body>
+</html>

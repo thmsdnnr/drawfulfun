@@ -2,8 +2,8 @@ window.onload = function() {
   const canvas = document.querySelector('canvas');
   const paddingEq = 50;
   //app-wide vars
-  let CS={strokeS:'', fillS:'', lineW:'4', lOpacity:'1', blendMode:'source-over', radius:'5', brushSize:'10', tool:'',
-  contDraw:false, drawRate:'100', lastDrawn:Date.now(), undoState:0, undoArr:[], isDrawing:false};
+  let CS={strokeS:'', fillS:'', lineW:'4', lOpacity:'1', blendMode:'source-over', brushSize:'10', tool:'',
+  contDraw:false, drawRate:'100', lastDrawn:Date.now(), undoState:0, undoArr:[], isDrawing:false, modal:false};
   //rate: 1000 means one draw per second, 100 means 10/second, 10 means 100/second, basically infinite
   //fires per second: can also have option to "override" fires-per-second if e.movementX/e.movementY over threshold
 
@@ -11,8 +11,10 @@ window.onload = function() {
     CS.strokeS=randomRGBA();
     CS.fillS=randomRGBA();
     CS.lineW=Math.floor(Math.random()*9)+1;
-    CS.radius=Math.floor(Math.random()*99)+1;
+    CS.brushSize=Math.floor(Math.random()*99)+1;
     updateControls();
+  //  canvas.dispatchEvent(new Event('mousemove')); // trigger updating in place of the brush on the preview layer
+    //TODO trigger redraw "in-place" on new random event
   }
 
   function opacity(change) { //steps of 0.05, min of 0 and max of 1.0
@@ -26,8 +28,7 @@ window.onload = function() {
     document.querySelector('input#strokeStyle').value=rgbaToHex(CS.strokeS);
     document.querySelector('input#lineWidth').value=CS.lineW;
     document.querySelector('input#layerOpacity').value=CS.lOpacity;
-    document.querySelector('input#circleRadius').value=CS.radius;
-    document.querySelector('input#drawRate').value=CS.drawRate; //1
+    document.querySelector('input#drawRate').value=CS.drawRate;
     document.querySelector('input#brushSize').value=CS.brushSize;
   }
 
@@ -53,9 +54,12 @@ window.onload = function() {
   let current=canvas.toDataURL(); //save current state
   canvas.height=window.innerHeight-paddingEq; //resize erases
   canvas.width=window.innerWidth-paddingEq;
+  mouseLayer.height=canvas.height;
+  mouseLayer.width=canvas.width;
   let iObj=new Image();
   iObj.src=current;
   ctx.drawImage(iObj,0,0);//redraw
+  updateModalCoords(); // if modal exists update coordinates
 }
 
   function clearCanvas() {
@@ -87,6 +91,34 @@ window.onload = function() {
   document.querySelector('#filterIt').addEventListener('click',filterHandler);
   //undo and redo
   document.querySelectorAll('button.timeframe').forEach((b)=>b.addEventListener('click',undoRedo));
+  //upload fileData
+  document.querySelector('input#imageUpload').addEventListener('change',fileUploadHandler);
+
+  //LOG OUT
+  document.querySelector('button#logOut').addEventListener('click',logOut);
+
+  function logOut() {
+    let mContent=`<div class="modalContents"><span id="closeBox"><button id="killModal">X</button></span><h1>WOW AN EXCITING MODAL</h1><p><img src="/assets/images/look.png"></p><p><button id="killModal">KILL THE MODAL</button></p></div>`;
+    //req.session=null; //TODO undefined?
+    popModal(mContent);
+  }
+
+  function fileUploadHandler() { //TODO
+    let file=this.files[0]
+    let extension=file.type.split("/")[0];
+    if (extension==='image') { // validate that user didn't mess with the form file upload
+      let img = new Image(); //TODO add max dimesions and scale otherwise or say it's too large
+      img.onload = function() { //TODO layer dimension "sync" or other change function, even an onChange listener
+        canvas.height=img.height;
+        canvas.width=img.width;
+        mouseLayer.height=canvas.height;
+        mouseLayer.width=canvas.width;
+        ctx.drawImage(img, 0, 0);
+        URL.revokeObjectURL(img.src); //prevent memory leakage (thanks StackOverflow!)
+      };
+      img.src = URL.createObjectURL(file);
+    }
+  }
 
   function undoRedo(e, data) {
     console.log('undoredo fn e:'+e+' data:'+data);
@@ -95,6 +127,7 @@ window.onload = function() {
       CS.undoState=CS.undoArr.length-1;
     }
     else if (e.target.id==='undo') {
+      if (!CS.undoArr.length) { return false; }
       if (CS.undoState>=0) {
         console.log(CS.undoState);
         console.log(CS.undoArr.length);
@@ -105,6 +138,7 @@ window.onload = function() {
       }
     }
     else if (e.target.id==='redo') {
+      if (!CS.undoArr.length) { return false; }
       if (CS.undoState<(CS.undoArr.length-1)) {
         ctx.putImageData(CS.undoArr[CS.undoState], 0, 0);
         CS.undoState++;
@@ -114,16 +148,11 @@ window.onload = function() {
 
   function filterHandler() {
     // e.g.: filterIt('grayscale(100%)',1.0, {xI:canvas.width/2-200, xF:canvas.width/2+400, yI:canvas.height/2-200, yF:canvas.height/2+400});
-    //filterIt('drop-shadow(16px 16px 10px black)', 0.8);
-    filterIt('url("/assets/filters.svg#Gothamish")',1.0);
- //let fAr=[['blur(10px)',0.7],['invert(100%)',1.0]];
-    //fAr.forEach((f)=>filterIt(f[0],f[1]));
-  //  filterIt('url("/assets/filters.svg#emboss")',1.0);
+    filterIt(null,1.0,null,mouseCtx);
   }
 
-
-  function filterIt(filterAction,filterOpacity,area) { //region is a xi,yi,xF,yF rect to which we should apply the filter
-      let currentAlpha=ctx.globalAlpha;
+  function filterIt(filterAction,filterOpacity,area,context) { //region is a xi,yi,xF,yF rect to which we should apply the filter
+      let currentAlpha=context.globalAlpha;
       let filteredImage=document.createElement('canvas');
       let filterCtx=filteredImage.getContext('2d');
       filteredImage.width=canvas.width;
@@ -133,15 +162,15 @@ window.onload = function() {
         filterCtx.beginPath();
         filterCtx.rect(area.xI,area.yI,(area.xF-area.xI),(area.yF-area.yI)); //x, y, width, height
         filterCtx.clip();
-        console.log('clipped');
       }
-      filterCtx.filter=filterAction;
-      filterCtx.globalAlpha=filterOpacity;
+      filterCtx.setTransform(1, 0, 0, -1, 0, 0);
+      //filterCtx.filter=filterAction;
+      //filterCtx.globalAlpha=filterOpacity;
       filterCtx.drawImage(canvas, 0, 0); // draw existing canvas to canvas copy with filter
-      ctx.globalAlpha=filterOpacity;
-      ctx.drawImage(filteredImage, 0, 0); // copy down filter to current canvas
+      context.globalAlpha=filterOpacity;
+      context.drawImage(filteredImage, 0, 0); // copy down filter to current canvas
       filterCtx.filter=""; // reset filter
-      ctx.globalAlpha=currentAlpha; // reset opacity
+      context.globalAlpha=currentAlpha; // reset opacity
     }
 
   //  ctx.filter=`grayscale(50%)`; //url("/assets/filters.svg#Gothamish")`;
@@ -155,7 +184,7 @@ window.onload = function() {
   function randomBackground() {
     var imgBack = new Image();
     imgBack.onload = function() {
-      ctx.drawImage(imgBack, 0, 0);
+      ctx.drawImage(imgBack, 0, -imgBack.height);
     };
     imgBack.src = '/assets/images/out.jpeg';
   //TODO implement unsplash.it API maybe to do this.
@@ -171,6 +200,10 @@ window.onload = function() {
   sliders.forEach((s)=>s.addEventListener('change',changeSliders))
   //blendMode
   document.querySelector('#blendMode').addEventListener('change',blendMode);
+  //filterMode
+  document.querySelector('#filterMode').addEventListener('change',filterMode);
+  //rotateCanvas
+  document.querySelector('#rotateCanvas').addEventListener('change',rotateCanvas);
   //brush size
   document.querySelector('input#brushSize').addEventListener('change',function (e) { console.log(e); CS.brushSize=e.target.value; });
 
@@ -182,16 +215,70 @@ window.onload = function() {
 
   function changeSliders(e) {
     console.log(e);
-    if (e.target.id==='lineWidth') { CS.lineW=e.target.valueAsNumber; }
+    if (e.target.id==='lineWidth') {
+      let v=e.target.valueAsNumber;
+      (v>0) ? CS.lineW=v : CS.lineW=0.01;
+      mouseCtx.lineWidth=CS.lineWidth;
+    }
     if (e.target.id==='layerOpacity') {CS.lOpacity=e.target.valueAsNumber; }
-    if (e.target.id==='circleRadius') {CS.radius=e.target.valueAsNumber;}
+    if (e.target.id==='brushSize') {CS.brushSize=e.target.valueAsNumber;}
     if (e.target.id==='drawRate') {CS.drawRate=(1/e.target.valueAsNumber)*10000;}
   }
 
   function blendMode(e) {
     CS.blendMode=e.target.value;
     mouseCtx.globalCompositeOperation=CS.blendMode;
-    //console.log(e.target.value);
+  }
+
+  function filterMode(e) {
+    console.log(e.target.value);
+  }
+
+  function rotateCanvas(e) {
+    if (e.target.value==='default') { return false; } //no selection made
+    //we have to rotate about the CENTER of the image, not the corner
+    //otherwise you just rotate the image off the screen!
+    //options look like value="90-cw" for 90 degrees clockwise
+    //or like "mirror-horizontal" for mirroring about the Y-axis
+    let rotated=document.createElement('canvas');
+    let rotCtx=rotated.getContext('2d');
+    rotated.width=canvas.width;
+    rotated.height=canvas.height;
+    //make copy of canvas that we use for either type of transformation
+    rotCtx.save(); //save off original
+    console.log(e.target.value);
+    let mag=e.target.value.split("-")[0];
+    let orient=e.target.value.split("-")[1];
+    if (mag!=='mirror') { //it's a rotation
+      orient=Number(orient.replace(/ccw/,-1).replace(/cw/,1)); //clockwise is positive, ccw negative
+      console.log(orient+" "+mag);
+      let rotVal = (orient*mag)*Math.PI/180; //orient*mag gives degrees&directions, convert to radians
+      rotCtx.translate(canvas.width/2,canvas.height/2); //CRUCIAL!
+      rotCtx.rotate(rotVal);
+      console.log(rotVal);
+      rotCtx.drawImage(canvas, -canvas.width/2, -canvas.height/2, canvas.width, canvas.height); //TODO recalculate width and height
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(rotated, 0, 0);
+      }
+      //horizontal or vertical mirror
+    else { //here we translate the context to either the far right or far top of the screen, then flip back or down to mirror
+      console.log(orient);
+      if (orient==='horizontal') {
+        rotCtx.translate(canvas.width, 0);
+        rotCtx.scale(-1, 1);
+        rotCtx.drawImage(canvas, 0, 0); //TODO recalculate width and height
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(rotated, 0, 0);
+      }
+      else { //mirror vertical
+        rotCtx.translate(0, canvas.height);
+        rotCtx.scale(1, -1);
+        rotCtx.drawImage(canvas, 0, 0); //TODO recalculate width and height
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(rotated, 0, 0);
+      }
+    }
+    rotCtx.restore();
   }
 
   //login status div
@@ -200,22 +287,53 @@ window.onload = function() {
   let minutes = lastVisit.getMinutes();
   let timeString = `${hours}:`;
   (minutes<10) ? timeString+=`0${minutes}` : timeString+=`${minutes}`;
-  let lStatus=document.querySelector('div#loginStatus');
+  let lStatus=document.querySelector('span#loginStatus');
   lStatus.innerHTML=`+${window.INITIAL_STATE.USER}: saw you here last at ${timeString}!<br />check out your <a href="/db">images</a> brah!`;
 
   function saveFile() {
-    let xhr=new XMLHttpRequest(),
+    let xhr=new XMLHttpRequest(), //can do typeahead in an array for allowed names!
     method="POST",
-    url = "/save";
+    url = "/u/imgNames";
     xhr.open(method, url, true);
     xhr.setRequestHeader("Content-Type", "application/json");
+    xhr.send();
     xhr.onload = function () {
-      console.log(`readyState: ${xhr.readyState}`);
-      console.log(`status: ${xhr.status}`);
-      console.log('we passed in the data successfully');
-    }
-    xhr.send(JSON.stringify({data:canvas.toDataURL('image/png'),width:canvas.width, height:canvas.height}));
+      if (xhr.readyState===4&&xhr.status===200) {
+        let takenNames=xhr.responseText;
+        saveFileModal(takenNames, function(name) {
+            if (name===null) { return false; } //user X-ed out of modal.
+            let imageName;
+            (name) ? imageName=name : imageName=null;
+            console.log(imageName);
+            //if user-supplied name is not null, otherwise no name
+            let xhr=new XMLHttpRequest(), //can do typeahead in an array for allowed names!
+            method="POST",
+            url = "/save";
+            xhr.open(method, url, true);
+            xhr.setRequestHeader("Content-Type", "application/json");
+            xhr.onload = function () {
+              console.log(`readyState: ${xhr.readyState}`);
+              console.log(`status: ${xhr.status}`);
+              console.log('we passed in the data successfully');
+            }
+        xhr.send(JSON.stringify({data:canvas.toDataURL('image/png'),width:canvas.width,height:canvas.height,imgName:imageName}));
+        });
+      }
+    };
   }
+
+  //TODO: modularize the modals, PLEASE!
+  function saveFileModal(names, cb) {
+    let modalContent = `
+    <div class="modalContents">
+    <span id="closeBox"><button id="killModal" class="close">X</button></span>
+    <p>FILE NAME: <input type="text" name="filename" id="filename" autofocus />
+    <button id="submitModal">SAVE</button></p><span id="warning"></span></div>
+    `;
+    //let modalEnv = `document.querySelector('input#filename').value`;
+    popModal(modalContent, names, cb);
+  }
+
 
   function loadImage(imageLoc='') { //loads most recent image
     //TODO make more general to load ANY image passed in on query
@@ -289,19 +407,20 @@ function deleteFromImgur(deleteHash) { //{"data":true,"success":true,"status":20
   function drawLine(m,context) {
     context.lineCap='round';
     context.lineWidth=CS.lineW || Math.min((m.movArr[0]+m.movArr[1]),2);
-    context.arc(m.x,m.y,CS.radius,0,Math.PI*2*Math.random());
+    context.arc(m.x,m.y,CS.brushSize,0,Math.PI*2*Math.random());
     context.fill();
     context.stroke();
   }
 
   function drawCircle(m,context) {
-    context.arc(m.x,m.y,CS.radius,0,Math.PI*2);
+    context.arc(m.x,m.y,CS.brushSize,0,Math.PI*2);
     context.fill();
+    context.lineWidth=CS.lineW;
     context.stroke();
   }
 
   function drawSquare(m,context) {
-    context.fillRect(m.x-CS.radius/2,m.y-CS.radius/2,CS.radius,CS.radius);
+    context.fillRect(m.x-CS.brushSize/2,m.y-CS.brushSize/2,CS.brushSize,CS.brushSize);
     context.stroke();
   }
 
@@ -415,9 +534,14 @@ function deleteFromImgur(deleteHash) { //{"data":true,"success":true,"status":20
     if (e.code==='KeyC') { CS.tool='tCircle' } //keyCode===67
     if (e.code==='KeyS') { CS.tool='tSquare' } //keyCode===83
     if (e.code==='KeyX') { clearCanvas(); } //keyCode===88
+    if (e.code==='Backquote') { toggleToolDisplay(); } //keyCode===192
     else { console.log(e); }
   }
 
+  function toggleToolDisplay() {
+    let tBar=document.querySelector('div.controls');
+    (tBar.style.display==='') ? tBar.style.display='inline-block' : tBar.style.display='';
+  }
 
   let mouseLayer=document.createElement('canvas');
   mouseLayer.classList.add('mouseOverlay');
@@ -431,10 +555,8 @@ function deleteFromImgur(deleteHash) { //{"data":true,"success":true,"status":20
   canvases.forEach((c)=>c.addEventListener('mousedown',mouseTrack));
   canvases.forEach((c)=>c.addEventListener('mouseup',mouseTrack));
   canvases.forEach((c)=>c.addEventListener('mouseleave',function mouseLeave(){
-    console.log('mouse left');
     mouseCtx.clearRect(0, 0, mouseLayer.width, mouseLayer.height);
-  }
-  ));
+  }));
 
   function mouseTrack(e) {
     if (e.type==='mousedown') {
@@ -447,12 +569,10 @@ function deleteFromImgur(deleteHash) { //{"data":true,"success":true,"status":20
     mouseCtx.clearRect(0,0,mouseLayer.width,mouseLayer.height);
     mouseCtx.drawImage(canvas,0,0);//copy the current canvas
 
-    //console.log((CS.isDrawing===true)+" is drawing");
-
+  //  filterIt('url("/assets/filters.svg#svgBlurBig")',1.0,{xI:mouseParams.x,yI:mouseParams.y,xF:mouseParams.x+CS.brushSize,yF:mouseParams.y+CS.brushSize},mouseCtx);
     mouseCtx.strokeStyle=CS.strokeS || randomRGBA();
     mouseCtx.fillStyle=CS.fillS || randomRGBA();
     mouseCtx.globalAlpha=CS.lOpacity;
-
     mouseCtx.beginPath(); //draw the thing on the current canvas
         switch(CS.tool) {
           case 'tBrush': drawBrush(mouseParams, mouseCtx, CS.brush, CS.brushSize); break;
@@ -464,7 +584,7 @@ function deleteFromImgur(deleteHash) { //{"data":true,"success":true,"status":20
         }
     else {
       //capture initial undo state
-      (CS.undoState===0) ? undoRedo(null, ctx.getImageData(0, 0, canvas.width, canvas.height)) : 0;
+      //(CS.undoState===0) ? undoRedo(null, ctx.getImageData(0, 0, canvas.width, canvas.height)) : 0;
       ctx.drawImage(mouseLayer, 0, 0);
       console.log('undoredo');
       undoRedo(null, ctx.getImageData(0, 0, canvas.width, canvas.height)); //undo and redo handler
@@ -472,7 +592,7 @@ function deleteFromImgur(deleteHash) { //{"data":true,"success":true,"status":20
   }
 
   function shake() {
-      (CS.radius>50) ? CS.radius=CS.radius-(Math.random()*49+1) : CS.radius=CS.radius+(Math.random()*49+1);
+      (CS.brushSize>50) ? CS.brushSize=CS.brushSize-(Math.random()*49+1) : CS.brushSize=CS.brushSize+(Math.random()*49+1);
     }
 
   function rgbaToHex(RGBA) { //turns rgba(255,255,255,1) into #FFFFFF
@@ -485,4 +605,113 @@ function deleteFromImgur(deleteHash) { //{"data":true,"success":true,"status":20
     console.log(`#${arr.join("")}`);
     return `#${arr.join("")}`;
   }
+
+  window.addEventListener('scroll',updateModalCoords);
+
+  function updateModalCoords(e) {
+    console.log(e);
+    if(CS.modal) {
+      let m=document.querySelector('div.modal');
+      let s=document.querySelector('div.modalScreen');
+      //modal
+      m.style.top=(window.innerHeight-m.clientHeight)/2+window.scrollY; //(window.innerHeight - div.height)/2 puts at center
+      m.style.left=(window.innerWidth-m.clientWidth)/2;
+      m.style.width=window.innerWidth/2;
+      m.style.height=window.innerHeight/2;
+      //screen
+      s.style.height=window.innerHeight+window.scrollY;
+      s.style.width=window.innerWidth;
+    }
+  }
+
+  function popModal(content,names,cb) { //TODO this is currently NOT modularized modal code because of the NAMES thing. You should wrap that.
+    if(CS.modal===false) { //I refuse to support nested modals, for the good of humanity.
+      console.log(names);
+      let screen=document.createElement('div'); //masking effect
+      screen.style.height=window.innerHeight;
+      screen.style.width=window.innerWidth;
+      screen.classList.add('modalScreen');
+      document.body.append(screen);
+      let m = document.createElement('div');
+      document.body.append(m);
+      m.innerHTML = content || '<div class="modalContents">I am empty inside. <p><button id="killModal">KILL THE MODAL</button></p></div>';
+      m.classList.add('modal');
+      m.style.top=(window.innerHeight-m.clientHeight)/2; //(window.innerHeight - div.height)/2 puts at center
+      m.style.left=(window.innerWidth-m.clientWidth)/2;
+      let kM=document.querySelector('button#killModal');
+      kM.addEventListener('click',()=>{cb(null); killModal();},true);
+      let sM=document.querySelector('button#submitModal');
+      sM.addEventListener('click',submitModal,true);
+      let input=document.querySelector('input#filename');
+      input.addEventListener('keyup',typeAhead);
+      CS.modal=true;
+      function killModal() {
+      if(CS.modal===true) {
+        screen.remove();
+        m.remove();
+        CS.modal=false;
+        }
+      }
+      function submitModal() {
+        let val=document.querySelector('input#filename').value;
+        console.log("modal val: "+val);
+        cb(val); //call it baaaaack!
+        killModal();
+        }
+      }
+    function typeAhead(e) {
+      if (e.key==='Enter') { //keyCode===13
+        submitModal();
+        return;
+      }
+      let input=document.querySelector('input#filename');
+      let val=document.querySelector('input#filename').value;
+      let warn=document.querySelector('span#warning');
+      console.log(val);
+      console.dir(input);
+      console.log(JSON.parse(names));
+      let duplicate=Array.from(JSON.parse(names)).filter((n)=>n===val);
+      if (duplicate.length) {
+        input.style.color='red';
+        warn.style.display='inline';
+        warn.innerHTML=`${val} already exists. Saving will _overwrite_ the existing file.`;
+      }
+      else {
+        input.style.color='black';
+        warn.style.display='none';
+        warn.innerHTML='';
+      }
+    }
+  }
+
+  //Canvas dropzone for drag-n'-drop images
+  //TODO add resize/move capabilties on the layer
+  canvas.addEventListener('ondragover', function(e){
+    e.stopPropagation();
+    e.preventDefault();
+  });
+  canvas.addEventListener('ondragenter', function(e){
+    e.stopPropagation();
+    e.preventDefault();
+  });
+  canvas.addEventListener('ondrop', function(e){
+    e.stopPropagation();
+    e.preventDefault();
+    console.log(e);
+    fileUploadHandler(e.dataTransfer.files);
+  });
+  mouseLayer.addEventListener('ondragover', function(e){
+    e.stopPropagation();
+    e.preventDefault();
+  });
+  mouseLayer.addEventListener('enter', function(e){
+    e.stopPropagation();
+    e.preventDefault();
+  });
+  mouseLayer.addEventListener('ondrop', function(e){
+    e.stopPropagation();
+    e.preventDefault();
+    console.log(e);
+    fileUploadHandler(e.dataTransfer.files);
+  });
 }

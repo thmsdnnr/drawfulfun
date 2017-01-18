@@ -1,4 +1,10 @@
 <svg style="position: absolute; top: -99999px" xmlns="http://www.w3.org/2000/svg">
+  <filter id="svgBlurBig" x="-25%" y="-25%" width="130%" height="130%">
+    <feGaussianBlur in="SourceGraphic" stdDeviation="10"/>
+  </filter>
+</svg>
+
+<svg style="position: absolute; top: -99999px" xmlns="http://www.w3.org/2000/svg">
   <filter id="svgBlur" x="-5%" y="-5%" width="110%" height="110%">
     <feGaussianBlur in="SourceGraphic" stdDeviation="5"/>
   </filter>
